@@ -170,8 +170,8 @@ public static partial class Tasks
     public static IEnumerable<Dept> Task14()
     {
         IEnumerable<Dept> depts = Depts.Join(Emps, d => d.Deptno, e => e.Deptno, (d, e) => new { d, e }).
-            GroupBy(a => a.d).Select(a => new { key = a.Key, count = a.Count() }).Where(a => a.count == 5 || a.count == 0).
+            GroupBy(a => a.d).Select(a => new { key = a.Key, count = a.Count() }).Where(a => a.count != 5 || a.count != 0).
             Select(a => a.key).OrderBy( a => a.Dname);
-        return depts;
+        return Depts.Except(depts);
     }
 }
