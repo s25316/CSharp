@@ -15,7 +15,10 @@ namespace Lesson5.Servises
         {
             DateTime time = DateTime.Now;              // Use current time
             string format = "yyyy-MM-dd HH:mm:ss";    // modify the format depending upon input required in the column in database 
-            string sql = $"EXEC AddProductToWarehouse @IdProduct = {product.IdProduct}, @IdWarehouse = {product.IdWarehouse}, @Amount = {product.Amount}, @CreatedAt = {time.ToString(format)};";
+
+            //CAST('{time.ToString(format)}' AS DateTime);
+            string sql = $"EXEC AddProductToWarehouse @IdProduct = {product.IdProduct}, @IdWarehouse = {product.IdWarehouse}, @Amount = {product.Amount}, @CreatedAt = '{time.ToString(format)}'";
+            Console.WriteLine(sql);
             await IsRealizedByQueryAsync(sql);
         }
 
@@ -64,19 +67,14 @@ namespace Lesson5.Servises
 
 
             await IsUpdatedOrderAsync(product);
-            Console.WriteLine("wd");
             await InsertIntoProductWarehouseAsync(product);
 
-            Console.WriteLine("wd");
 
             string sql = "SELECT MAX(idproductwarehosue) FROM product_warehosue";
             RequestDTO request = new RequestDTO()
             {
                 RequestCode = 200
             };
-
-
-            Console.WriteLine("wd");
 
             await using SqlConnection sqlConnection = new(_connString);
             await using SqlCommand sqlCommand = new();           
@@ -209,18 +207,36 @@ namespace Lesson5.Servises
         {
             DateTime time = DateTime.Now;              // Use current time
             string format = "yyyy-MM-dd HH:mm:ss";    // modify the format depending upon input required in the column in database 
-            /*
-            string sql = $"INSERT INTO product_warehouse VALUES ((SELECT MAX(IdProductWarehouse) FROM product_warehouse) + 1, {product.IdWarehouse}, {product.IdProduct}, (SELECT idorder FROM \"order\" WHERE idproduct = {product.IdProduct} AND amount = {product.Amount})," +
-                $"(SELECT price FROM product WHERE idproduct = {product.IdProduct}) * {product.Amount}, convert(datetime, (CAST('{time.ToString(format)}' AS DateTime)) ,5) )";
-            */
             
-            string idOrder = $"( SELECT Max (a.IdOrder) FROM \"order\" a WHERE a.IdProduct = {product.IdProduct} AND a.Amount = {product.Amount})";
-            string amount = $"( SELECT Amount FROM \"order\" b WHERE b.IdOrder = {idOrder} )";
+            
+            string sqlIdOrder = $"SELECT Max (IdOrder) FROM \"order\" WHERE IdProduct = {product.IdProduct} AND Amount = {product.Amount};";
+            int idOrder = await ReturnInfoQueryAsync(sqlIdOrder);
+            string sqlAmount = $"SELECT Amount FROM \"order\" WHERE IdOrder = {idOrder}";
+            int amount = await ReturnInfoQueryAsync(sqlAmount);
 
-            string sql = $"""INSERT INTO Product_Warehouse(IdProductWarehouse, IdWarehouse, IdProduct, IdOrder, Amount, Price, CreatedAt) VALUES """
-             +$"( (SELECT MAX(IdProductWarehouse) FROM product_warehouse) + 1, {product.IdWarehouse}, {product.IdProduct}, {idOrder} , {product.Amount}, {int.Parse(amount) * product.Amount}, (CAST('{time.ToString(format)}' AS DateTime)) ,5) ));";
+            string sql = $"""INSERT INTO Product_Warehouse (IdProductWarehouse, IdWarehouse, IdProduct, IdOrder, Amount, Price, CreatedAt) VALUES """
+             +$"( (SELECT MAX(IdProductWarehouse) FROM product_warehouse) + 1, {product.IdWarehouse}, {product.IdProduct}, {idOrder} , {product.Amount}, {amount * product.Amount}, (CAST('{time.ToString(format)}' AS DateTime)) );";
             Console.WriteLine(sql);
             await IsRealizedByQueryAsync(sql);
+        }
+
+        private async Task<int> ReturnInfoQueryAsync(string sql)
+        {
+
+            await using SqlConnection sqlConnection = new(_connString);
+            await using SqlCommand sqlCommand = new();
+
+            sqlCommand.CommandText = sql;
+            sqlCommand.Connection = sqlConnection;
+
+            await sqlConnection.OpenAsync();
+
+            Int32 count = Convert.ToInt32(sqlCommand.ExecuteScalar());
+
+            await sqlConnection.CloseAsync();
+
+
+            return (int) Convert.ToDecimal(count);
         }
 
     }
